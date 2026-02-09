@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Upload, Download, Plus, Trash2, ChevronDown, ChevronUp, FileUp, Copy } from 'lucide-react';
+import { FileText, Upload, Download, Plus, Trash2, FileUp, Copy } from 'lucide-react';
 
 const SEOBriefingGenerator = () => {
   const [projects, setProjects] = useState([]);
@@ -14,7 +14,6 @@ const SEOBriefingGenerator = () => {
   const [longTailKeywords, setLongTailKeywords] = useState('');
   const [questions, setQuestions] = useState('');
   const [competitor, setCompetitor] = useState('');
-  const [expandedSections, setExpandedSections] = useState({});
 
   const resetForm = () => {
     setProjectName('');
@@ -410,13 +409,6 @@ Geef je antwoord ALLEEN in dit exacte JSON formaat, zonder extra tekst:
       console.error('Copy failed:', err);
       alert('❌ Kopiëren mislukt. Probeer het opnieuw.');
     });
-  };
-
-  const toggleSection = (index) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [index]: !prev[index]
-    }));
   };
 
   return (
