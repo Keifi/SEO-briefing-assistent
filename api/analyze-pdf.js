@@ -1,4 +1,16 @@
 export default async function handler(req, res) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -15,10 +27,13 @@ export default async function handler(req, res) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
 
     if (!apiKey) {
+      console.error('ANTHROPIC_API_KEY not found in environment');
       return res.status(500).json({ error: 'API key not configured' });
     }
 
-    // Call Anthropic API
+    console.log('Making request to Anthropic API...');
+
+    // Call Anthropic API with correct headers
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -66,22 +81,36 @@ Geef je antwoord ALLEEN in dit exacte JSON formaat, zonder extra tekst of markdo
       })
     });
 
+    console.log('Anthropic API response status:', response.status);
+
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Anthropic API error:', errorData);
+      const errorText = await response.text();
+      console.error('Anthropic API error:', errorText);
+      
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText };
+      }
+      
       return res.status(response.status).json({ 
         error: 'API call failed', 
-        details: errorData 
+        details: errorData,
+        status: response.status
       });
     }
 
     const data = await response.json();
+    console.log('Received response from Anthropic');
     
     // Extract text content
     const textContent = data.content
       .filter(item => item.type === "text")
       .map(item => item.text)
       .join("\n");
+
+    console.log('Parsing response...');
 
     // Parse JSON response
     let parsedData;
@@ -90,11 +119,14 @@ Geef je antwoord ALLEEN in dit exacte JSON formaat, zonder extra tekst of markdo
       parsedData = JSON.parse(cleanJson);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
+      console.error('Raw text:', textContent);
       return res.status(500).json({ 
         error: 'Failed to parse response',
-        rawText: textContent 
+        rawText: textContent.substring(0, 500) // First 500 chars for debugging
       });
     }
+
+    console.log('Successfully parsed data');
 
     // Return parsed data
     return res.status(200).json(parsedData);
@@ -103,7 +135,8 @@ Geef je antwoord ALLEEN in dit exacte JSON formaat, zonder extra tekst of markdo
     console.error('Server error:', error);
     return res.status(500).json({ 
       error: 'Internal server error',
-      message: error.message 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
