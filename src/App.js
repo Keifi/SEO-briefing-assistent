@@ -50,68 +50,24 @@ const SEOBriefingGenerator = () => {
         reader.readAsDataURL(file);
       });
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      // Call our backend API function instead of Anthropic directly
+      const response = await fetch("/api/analyze-pdf", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "document",
-                  source: {
-                    type: "base64",
-                    media_type: "application/pdf",
-                    data: base64Data
-                  }
-                },
-                {
-                  type: "text",
-                  text: `Analyseer dit SEMrush rapport en extraheer de volgende informatie voor SEO doeleinden:
-
-1. HOOFDZOEKWOORD: Het primaire/meest relevante zoekwoord (1 zoekwoord)
-2. ZOEKWOORDVARIATIES: Meervoud, synoniemen, spellingvarianten (max 10)
-3. LONG-TAIL ZOEKWOORDEN: Langere specifieke zoekwoorden (max 10)
-4. VRAGEN: "People Also Ask" vragen of vraagvormen (max 8)
-
-FILTER UIT: Zoekwoorden met merknamen van concurrenten.
-
-Geef je antwoord ALLEEN in dit exacte JSON formaat, zonder extra tekst:
-{
-  "mainKeyword": "string",
-  "variations": ["string"],
-  "longTail": ["string"],
-  "questions": ["string"]
-}`
-                }
-              ]
-            }
-          ]
+          pdfData: base64Data
         })
       });
 
-      const data = await response.json();
-      
-      const textContent = data.content
-        .filter(item => item.type === "text")
-        .map(item => item.text)
-        .join("\n");
-
-      let parsedData;
-      try {
-        const cleanJson = textContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        parsedData = JSON.parse(cleanJson);
-      } catch (parseError) {
-        console.error('Parse error:', parseError);
-        alert('Kon de data niet uit het PDF halen. Probeer een ander bestand.');
-        setIsProcessing(false);
-        return;
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API error:', errorData);
+        throw new Error(errorData.error || 'API call failed');
       }
+
+      const parsedData = await response.json();
 
       if (parsedData.mainKeyword) {
         setMainKeyword(parsedData.mainKeyword);
